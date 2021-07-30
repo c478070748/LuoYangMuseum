@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>洛阳市博物馆可视化</title>
+    <style>
+        #museumInfo{
+            width: 250px;
+            border-style: dashed;
+            position: absolute;
+            visibility: hidden;
+            z-index: 2;
+        }
+
+        p.title1 {
+            font-weight: bold;
+            padding-left: 10px;
+            margin: 2px;
+        }
+
+        p.title2 {
+            font-size: small;
+            font-weight: normal;
+            padding-left: 10px;
+            margin: 2px;
+        }
+
+        p.introduction{
+            margin: 5px;
+            font-size: small;
+        }
+
+        p.trail{
+            font-size: smaller;
+            margin: 5px;
+            padding-right: 5px;
+            text-align: right;
+        }
+
+        html body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+
+        #tips{
+            width: 100px;
+            height: 125px;
+            position: absolute;
+            box-shadow: 2px 4px 6px #000;
+        }
+
+        .colorArea{
+            width: 10px;
+            height: 10px;
+            margin: 5px;
+        }
+
+        .textArea{
+            font-size: smaller;
+            margin: 1px;
+
+        }
+
+        li{
+            list-style: none;
+            height: 20px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="tips">
+    <li>
+        <div class="colorArea" style="background-color: #ff9a00;float: left"></div>
+        <div class="textArea" style="float: left">综合博物馆</div>
+    </li>
+    <li>
+        <div class="colorArea" style="background-color: #fffb00;float: left"></div>
+        <div class="textArea" style="float: left">历史博物馆</div>
+    </li>
+    <li>
+        <div class="colorArea" style="background-color: #ff2300;float: left"></div>
+        <div class="textArea" style="float: left">革命博物馆</div>
+    </li>
+    <li>
+        <div class="colorArea" style="background-color: #9aff00;float: left"></div>
+        <div class="textArea" style="float: left">文化博物馆</div>
+    </li>
+    <li>
+        <div class="colorArea" style="background-color: #00ffee;float: left"></div>
+        <div class="textArea" style="float: left">行业博物馆</div>
+    </li>
+    <li>
+        <input type="checkbox" checked="true" onclick="deleteMax(this)">去除最大
+    </li>
+
+</div>
+
+
+<div id="museumInfo">
+    <p id="nameCN" class="title1">洛阳博物馆</p>
+    <p id="nameEN" class="title2">LuoYang Museum</p>
+    <hr/>
+    <p id="introduction" class="introduction">现为国家一级博物馆、河南省优秀爱国主义教育基地。是一座集文物收藏、科学研究、陈列展览、社会教育与文化交流诸功能为一体的综合性博物馆。</p>
+    <hr/>
+    <p id="phoneNum" class="trail">0379-69901002</p>
+    <p id="price" class="trail">免费</p>
+</div>
+
+
+<script src="d3/three.js"></script>
+<script src="d3/OrbitControls.js"></script>
+<script src="d3/d3-array.v1.min.js"></script>
+<script src="d3/d3-geo.v1.min.js"></script>
+<script src="d3/d3.v7.js"></script>
+
+
+<script>
+    function deleteMax(cb){
+        //console.log(cb.checked);
+        isDeletMax = cb.checked;
+        //console.log(scene.children);
+        for (let i = scene.children.length - 1; i >= 0; i--) {
+            if(!isNaN(parseInt(scene.children[i].name)))
+                scene.remove(scene.children[i]);
+        }
+
+        //console.log(scene.children);
+        createMuseumObj();
+    }
+</script>
+
+
+<script>
+    //存放全局变量
+
+    const min_height = 1;
+    const max_height = 10;
+    const min_radius = 0.05;
+    const max_radius = 0.5;
+
+
+    var isDeletMax = true;
+    var dataset_area = [];
+    var max_area;
+    var min_area;
+    var dataset_itemnum = [];
+    var max_itemnum;
+    var min_itemnum;
+
+    var dataset_nomax_area = [];
+    var dataset_nomax_itemnum = [];
+
+    var museumList = [];
+
+    var activeMuseum = [];
+
+
+    var map_type = new Map();
+    map_type.set("综合",'#ff9a00');
+    map_type.set("历史",'#fffb00');
+    map_type.set("革命",'#ff2300');
+    map_type.set("文化",'#9aff00');
+    map_type.set("行业",'#00ffee');
+
+
+    const projection = d3.geoMercator().center([112, 34]).scale(1000).translate([0, 0]);
+
+
+
+</script>
+
+<script>
+    class district{
+
+        constructor(name){
+            this.name = name;
+        }
+
+
+        createObject(lineCoords){
+
+
+
+            this.obj = new THREE.Object3D();
+
+            const shape = new THREE.Shape();
+
+            const points = [];
+
+            for(let i=0;i<lineCoords.length;i++){
+                //console.log(lineCoords[i]);
+                var [x,y]=projection(lineCoords[i]);
+
+                if(i==0) {
+                    shape.moveTo(x, -y);
+                }else{
+                    shape.lineTo(x, -y);
+                }
+                points.push(new THREE.Vector3(x,-y,0));
+                //console.log([x,y]);
+            }
+
+            //创建模型面
+            const shapegeo = new THREE.ShapeGeometry(shape);
+            const shapemat = new THREE.MeshBasicMaterial({
+                color: '#b7bfc6',
+                transparent: true,
+                opacity: 0.6,
+                side:THREE.DoubleSide
+            });
+            const shapemesh = new THREE.Mesh(shapegeo,shapemat);
+
+            //创建模型线
+            const linegeo = new THREE.BufferGeometry();
+            linegeo.setFromPoints(points);
+            const linemat = new THREE.LineBasicMaterial({
+                color: '#3a3d43'
+            });
+            const linemesh = new THREE.Line(linegeo,linemat);
+
+
+            this.obj.add(shapemesh);
+            this.obj.add(linemesh);
+        }
+    }
+
+
+</script>
+
+<script>
+
+
+    class Museum{
+
+
+        init(data){
+
+            this.id = museumList.length;
+
+            this.name_cn = data['中文名称'].replace(/\r\n/g,"");
+            this.name_en = data['英文名称'].replace(/\r\n/g,"");
+            this.introduction = data['博物馆简介'].replace(/\r\n/g,"");
+            this.phone = data['联系电话'].replace(/\r\n/g,"");
+            this.price = data['门票价格'].replace(/\r\n/g,"");
+
+
+            this.area = parseInt(data['占地面积'].replace(/\r\n/g,""));
+            if(isNaN(this.area))this.area = 0;
+
+            this.itemnum = parseInt(data['藏品数量'].replace(/\r\n/g,""));
+            if(isNaN(this.itemnum))this.itemnum = 0;
+
+            this.type = data['博物馆类别'].replace(/\r\n/g,"").replace(/\n/g,"");
+            this.lx = data['经度'].replace(/\r\n/g,"").replace(/\n/g,"");
+            this.ly = data['纬度'].replace(/\r\n/g,"").replace(/\n/g,"");
+            this.xy = [parseFloat(this.lx),parseFloat(this.ly)];
+
+            //console.log(this.area);
+            //console.log(this.itemnum);
+            //console.log(this.type + ":" +map_type.get(this.type));
+            //console.log(this.xy);
+
+        }
+
+        createObject(data_area, data_itemnum){
+            //console.log(data_area);
+            //console.log(data_itemnum);
+            this.obj = new THREE.Object3D();
+
+            //定义比例尺
+            var radiusScale = d3.scaleLinear()
+                .domain([d3.min(data_area),d3.max(data_area)])
+                .range([min_radius,max_radius]);
+
+            var heightScale = d3.scaleLinear()
+                .domain([d3.min(data_itemnum),d3.max(data_itemnum)])
+                .range([min_height,max_height]);
+
+            var radius = radiusScale(this.area);
+            var height = heightScale(this.itemnum);
+            var mColor = map_type.get(this.type);
+            const geometry = new THREE.CylinderGeometry( radius, radius, height, 6, 1 );
+            const material = new THREE.MeshBasicMaterial( {
+                color: mColor
+            } );
+            const cylinder = new THREE.Mesh( geometry, material );
+
+
+            //var meshLine = new THREE.Outline(cylinder);
+            cylinder.layers.set(3);
+
+            this.obj.add( cylinder );
+            //this.obj.add(meshLine);
+            //console.log(this.xy);
+            var [x,y] = projection(this.xy);
+            //console.log([x,y]);
+            this.obj.translateX(x);
+            this.obj.translateY(-y);
+            this.obj.translateZ(height/2);
+            this.obj.rotateX(90*Math.PI/180);
+
+            this.obj.name = this.id;
+        }
+
+    }
+
+
+</script>
+
+
+<script>
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000);
+    const renderer=new THREE.WebGLRenderer();
+    const controller = new THREE.OrbitControls(camera, renderer.domElement);
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const museumInfo = d3.select("#museumInfo");
+    var eventOffset = {};
+
+    function onMouseMove( event ) {
+
+        mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+        mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+        eventOffset.x = event.clientX;
+        eventOffset.y = event.clientY;
+        museumInfo.style("left", eventOffset.x + 2 + 'px');
+        museumInfo.style("top", eventOffset.y + 2 + 'px');
+    }
+
+    function init(){
+
+        //设置渲染器
+        renderer.setSize(window.innerWidth,window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        renderer.setClearColor(0xffffff,1);
+
+        //设置场景
+
+
+        //设置灯光
+        var ambientLight = new THREE.AmbientLight(0xffffff); // 环境光
+        scene.add(ambientLight);
+
+
+        //窗口变化重置画布
+        window.addEventListener('resize', function () {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        //设置摄像机
+        camera.position.set(0, -5, 10);
+        camera.lookAt(0, 0, 0);
+        camera.layers.enable(3)
+
+
+        //设置鼠标事件
+        window.addEventListener( 'mousemove', onMouseMove, false );
+
+
+        //设置射线
+        raycaster.layers.set(3);
+
+
+        //屏幕后处理
+        //postprocessing();
+
+        //加载洛阳市地理数据
+        loadData();
+        
+        //加载洛阳市博物馆信息
+        loadMuseumInfo();
+
+
+        animate();
+
+        console.log(scene.children);
+    }
+
+
+    
+    function loadMuseumInfo() {
+        d3.csv("csv/museum.csv", function(data) {
+            //console.log(data);
+            return data;
+        }).then(function (dataArray) {
+            //console.log(dataArray);
+            //console.log(dataArray[0]);
+            dataArray.forEach(elem=>{
+                var area = parseInt(elem['占地面积'].replace(/\r\n/g,""));
+                dataset_area.push(isNaN(area)?0:area);
+
+                var itemnum = parseInt(elem['藏品数量'].replace(/\r\n/g,""));
+                dataset_itemnum.push(isNaN(itemnum)?0:itemnum);
+
+                var museum = new Museum();
+                museum.init(elem);
+                museumList.push(museum);
+
+            });//
+
+            min_area = d3.min(dataset_area);
+            max_area = d3.max(dataset_area);
+            min_itemnum = d3.min(dataset_itemnum);
+            max_itemnum = d3.max(dataset_itemnum);
+
+            for(let i = 0; i<dataset_area.length; i++){
+                if(dataset_area[i]!=max_area)
+                    dataset_nomax_area.push(dataset_area[i]);
+                if(dataset_itemnum[i]!=max_itemnum)
+                    dataset_nomax_itemnum.push(dataset_itemnum[i]);
+            }
+
+            createMuseumObj();
+
+
+        });
+    }
+
+    function createMuseumObj() {
+        museumList.forEach(museum =>{
+            if(isDeletMax){
+                if(museum.area!=max_area&&museum.itemnum!=max_itemnum){
+
+                    museum.createObject(dataset_nomax_area,dataset_nomax_itemnum);
+                    scene.add(museum.obj);
+                }
+            }else{
+                museum.createObject(dataset_area,dataset_itemnum);
+                scene.add(museum.obj);
+            }
+
+        });
+    }
+
+
+
+    function loadData() {
+        // 加载json文件
+        let loader = new THREE.FileLoader();
+        loader.load('./json/luoyang.json', function (data) {
+            let jsonData = JSON.parse(data);
+            loadMap(jsonData);
+        });
+    }
+
+    function loadMap(jsonData) {
+
+        const map = new THREE.Object3D();
+
+        jsonData.features.forEach(elem=>{
+
+            var dist = new district(elem.properties.name);
+
+            const coordinates =  elem.geometry.coordinates;
+
+            coordinates.forEach(multiPolygon=>{
+                multiPolygon.forEach(polygon=>{
+                    dist.createObject(polygon);
+                })
+            });
+
+
+            map.add(dist.obj);
+
+        });//
+
+
+        map.name = "map";
+        scene.add(map);
+    }
+
+    function setMuseumInfo(id) {
+        id = parseInt(id);
+        var curMuseum = museumList[id];
+        if(curMuseum){
+            d3.select("#nameCN").text(curMuseum.name_cn);
+            d3.select("#nameEN").text(curMuseum.name_en);
+            d3.select("#introduction").text(curMuseum.introduction);
+            d3.select("#phoneNum").text(curMuseum.phone);
+            d3.select("#price").text(curMuseum.price);
+
+            museumInfo.style("visibility","visible");
+        }
+
+
+    }
+
+    function ray() {
+        // update the picking ray with the camera and mouse position
+        raycaster.setFromCamera(mouse,camera);
+
+        // calculate objects intersecting the picking ray
+        const intersects = raycaster.intersectObjects(scene.children, true);
+        //console.log(intersects);
+        for ( let i = 0; i < intersects.length; i++ ) {
+            //console.log(intersects[i].object.parent.name);
+            //intersects[i].children.object.material.color.set(0xff0000);
+            setMuseumInfo(intersects[i].object.parent.name);
+
+            activeMuseum.push(intersects[i].object);
+            oldColor = intersects[i].object.material.color;
+            intersects[i].object.material.color.set("#ff00c9");
+            //outlinePass.selectedObjects = activeMuseum;
+            break;
+        }
+
+    }
+
+    function resetActive() {
+        if (activeMuseum && activeMuseum.length > 0) { // 将上一次选中的恢复颜色
+            activeMuseum.forEach(element => {
+                var id = parseInt(element.parent.name);
+
+                //console.log(id);
+                element.material.color.set(map_type.get(museumList[id].type));
+                //console.log(element);
+                //element.material.color.set('#ff0000');
+            });
+        }
+
+        activeMuseum = []; // 设置为空
+        //outlinePass.selectedObjects = activeMuseum;
+        museumInfo.style("visibility","hidden");
+    }
+
+
+    function animate() {
+
+        requestAnimationFrame(animate);
+        controller.update();
+
+
+        resetActive();
+
+
+        ray();
+
+
+
+
+        renderer.render(scene,camera);
+
+    }
+
+
+
+
+
+
+
+    init();
+</script>
+
+</body>
+
+</html>
